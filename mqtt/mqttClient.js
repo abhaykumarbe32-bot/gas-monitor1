@@ -17,9 +17,11 @@ function startMQTT(io) {
 
         client.subscribe("sensor/+/gas");
 client.subscribe("sensor/+/relay");
+ client.subscribe("sensor/+/mode");
 
 console.log("Subscribed : sensor/+/gas");
 console.log("Subscribed : sensor/+/relay");
+console.log("Subscribed : sensor/+/mode");
 
     });
 
@@ -66,6 +68,33 @@ console.log("Subscribed : sensor/+/relay");
     });
 
     console.log("Relay Status Updated");
+
+    return;
+}
+if (topicType === "mode") {
+
+    if (data.mode !== "AUTO" && data.mode !== "MANUAL") {
+        console.log("❌ Invalid Mode:", data.mode);
+        return;
+    }
+
+    device.mode = data.mode;
+    device.status = "online";
+    device.lastSeen = new Date();
+
+    await device.save();
+
+    io.to(device.userId.toString()).emit("gas-data", {
+        deviceId: device.deviceId,
+        mode: device.mode,
+        gas: device.gas,
+        relay: device.relay,
+        valve: device.valve,
+        status: "online",
+        lastSeen: device.lastSeen,
+    });
+
+    console.log("✅ ESP32 Mode Updated:", device.mode);
 
     return;
 }
