@@ -4,7 +4,7 @@ exports.registerDevice = async (req, res) => {
 
     try {
 
-        const { deviceId, deviceName } = req.body;
+        const { deviceId, deviceName,location } = req.body;
 
         if (!deviceId || !deviceName) {
             return res.status(400).json({
@@ -24,8 +24,8 @@ exports.registerDevice = async (req, res) => {
 
             deviceId,
             deviceName,
-            userId: req.user.id
-
+            userId: req.user.id,
+            location: location || "",
         });
 
         res.status(201).json({
