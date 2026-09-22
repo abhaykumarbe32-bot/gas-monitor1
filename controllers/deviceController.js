@@ -26,6 +26,7 @@ exports.registerDevice = async (req, res) => {
             deviceName,
             userId: req.user.id,
             location: location || "",
+
         });
 
         res.status(201).json({
@@ -317,7 +318,8 @@ exports.updateSettings = async (req, res) => {
         const {
             warningThreshold,
             criticalThreshold,
-            location
+            location,
+             deviceId
         } = req.body;
 
         if (warningThreshold !== undefined)
@@ -325,6 +327,8 @@ exports.updateSettings = async (req, res) => {
 
         if (criticalThreshold !== undefined)
             device.criticalThreshold = criticalThreshold;
+        if (deviceId)
+            device.deviceId = deviceId.trim().toUpperCase();
 
         if (location)
             device.location = location;
