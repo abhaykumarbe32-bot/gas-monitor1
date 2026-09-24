@@ -17,11 +17,12 @@ function startMQTT(io) {
 
         client.subscribe("sensor/+/gas");
 client.subscribe("sensor/+/relay");
- client.subscribe("sensor/+/mode");
-
+client.subscribe("sensor/+/mode");
+client.subscribe("sensor/+/temp");
 console.log("Subscribed : sensor/+/gas");
 console.log("Subscribed : sensor/+/relay");
 console.log("Subscribed : sensor/+/mode");
+console.log("Subscribed : sensor/+/temp");
 
     });
 
@@ -63,6 +64,10 @@ console.log("Subscribed : sensor/+/mode");
     io.to(device.userId.toString()).emit("gas-data", {
         deviceId: device.deviceId,
         relay: device.relay,
+         gas: device.gas,
+         temperature: device.lastHeat,
+         valve: device.valve,
+         mode: device.mode,
         status: "online",
         lastSeen: device.lastSeen,
     });
@@ -83,11 +88,13 @@ if (topicType === "mode") {
     device.lastSeen = new Date();
 
     await device.save();
+    
 
     io.to(device.userId.toString()).emit("gas-data", {
         deviceId: device.deviceId,
         mode: device.mode,
         gas: device.gas,
+         temperature: device.lastHeat,
         relay: device.relay,
         valve: device.valve,
         status: "online",
@@ -98,7 +105,59 @@ if (topicType === "mode") {
 
     return;
 }
+ if (topicType === "temp") {
 
+                const temperature = Number(data.temperature);
+
+                if (isNaN(temperature)) {
+
+                    console.log(
+                        "❌ Invalid Temperature:",
+                        data.temperature
+                    );
+
+                    return;
+                }
+
+                device.lastHeat = temperature;
+                device.status = "online";
+                device.lastSeen = new Date();
+
+                await device.save();
+
+                console.log(
+                    "🌡️ Temperature Received:",
+                    temperature,
+                    "°C"
+                );
+                  // Send to mobile through Socket.IO
+
+                io.to(device.userId.toString()).emit("gas-data", {
+
+                    deviceId: device.deviceId,
+
+                    temperature: temperature,
+
+                    gas: device.gas,
+
+                    relay: device.relay,
+
+                    valve: device.valve,
+
+                    mode: device.mode,
+
+                    status: "online",
+
+                    lastSeen: device.lastSeen,
+                });
+
+
+                console.log(
+                    "📱 Temperature sent to Socket"
+                );
+
+                return;
+            }
             // Update Device Status
             device.gas= data.gas;
             device.status = "online";
