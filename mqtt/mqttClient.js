@@ -183,7 +183,7 @@ console.log("Sending Socket to:", device.userId.toString());
 
                 level = "Critical";
 
-            } else if (data.gas >= 300) {
+            } else if (data.gas >= 500) {
 
                 level = "Warning";
 
