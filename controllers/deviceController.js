@@ -208,52 +208,67 @@ exports.controlDevice = async (req, res) => {
 
     try {
 
-        const { relay, valve, mode } = req.body;
+        const { action } = req.body;
 
-        const device = await Device.findOneAndUpdate(
+        const validActions = [
+            "relay-on",
+            "silence",
+            "valve-open",
+            "valve-close",
+            "mode-auto",
+            "mode-manual"
+        ];
 
-            {
-                _id: req.params.id,
-                userId: req.user.id
-            },
+        if (!validActions.includes(action)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid action"
+            });
+        }
 
-            {
-                relay,
-                valve,
-                mode
-            },
-
-            {
-                 returnDocument: "after",
-            }
-
-        );
+        const device = await Device.findOne({
+            _id: req.params.id,
+            userId: req.user.id
+        });
 
         if (!device) {
-
             return res.status(404).json({
+                success: false,
                 message: "Device not found"
             });
-
         }
-         const command = {};
 
-if (req.body.relay !== undefined)
-    command.relay = req.body.relay;
+        // --------------------------------
+        // SEND ONLY ONE ACTION TO ESP32
+        // --------------------------------
 
-if (req.body.valve !== undefined)
-    command.valve = req.body.valve;
+        const command = {
+            action
+        };
 
-if (req.body.mode !== undefined)
-    command.mode = req.body.mode;
+        await publishCommand(
+            device.deviceId,
+            command
+        );
 
-await publishCommand(device.deviceId, command);
+        console.log("📤 Command sent to ESP32:", command);
 
-        res.json(device);
+        // IMPORTANT:
+        // Database state is NOT changed here.
+        // ESP32 ACK ke baad hi state update hogi.
+
+        res.json({
+            success: true,
+            message: "Command sent to device",
+            action
+        });
 
     } catch (err) {
 
+        console.log("❌ Control Error:", err.message);
+
         res.status(500).json({
+            success: false,
             message: err.message
         });
 

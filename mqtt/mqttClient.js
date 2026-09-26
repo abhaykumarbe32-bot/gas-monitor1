@@ -7,107 +7,202 @@ function startMQTT(io) {
 
     const client = mqtt.connect(process.env.MQTT_URL);
 
+    // Notification cooldown per device
     const notificationCooldown = {};
 
-    const COOLDOWN = 1 * 60 * 1000; // 5 Minutes
+    // 5 Minutes
+    const COOLDOWN = 5 * 60 * 1000;
+
+
+    // =========================================================
+    // MQTT CONNECT
+    // =========================================================
 
     client.on("connect", () => {
 
         console.log("✅ MQTT Connected");
 
         client.subscribe("sensor/+/gas");
-client.subscribe("sensor/+/relay");
-client.subscribe("sensor/+/mode");
-client.subscribe("sensor/+/temp");
-console.log("Subscribed : sensor/+/gas");
-console.log("Subscribed : sensor/+/relay");
-console.log("Subscribed : sensor/+/mode");
-console.log("Subscribed : sensor/+/temp");
+        client.subscribe("sensor/+/relay");
+        client.subscribe("sensor/+/mode");
+        client.subscribe("sensor/+/temp");
+        client.subscribe("sensor/+/ack");
+
+        console.log("Subscribed : sensor/+/gas");
+        console.log("Subscribed : sensor/+/relay");
+        console.log("Subscribed : sensor/+/mode");
+        console.log("Subscribed : sensor/+/temp");
+        console.log("Subscribed : sensor/+/ack");
 
     });
+
+
+    // =========================================================
+    // MQTT MESSAGE
+    // =========================================================
 
     client.on("message", async (topic, message) => {
 
         try {
 
-            // Parse JSON Payload
+            // -------------------------------------------------
+            // Parse JSON
+            // -------------------------------------------------
+
             const data = JSON.parse(message.toString());
 
-            // Extract Device ID from Topic
-            const deviceId = topic.split("/")[1];
-            const topicType = topic.split("/")[2];
+
+            // -------------------------------------------------
+            // Extract Device ID and Topic Type
+            // Example:
+            // sensor/68FE7180C554/gas
+            // -------------------------------------------------
+
+            const topicParts = topic.split("/");
+
+            const deviceId = topicParts[1];
+            const topicType = topicParts[2];
 
 
             console.log("--------------------------------");
-            console.log("Topic :", topic);
-            console.log("Device :", deviceId);
+            console.log("Topic   :", topic);
+            console.log("Device  :", deviceId);
+            console.log("Type    :", topicType);
             console.log("Payload :", data);
 
+
+            // -------------------------------------------------
             // Find Registered Device
-            const device = await Device.findOne({ deviceId });
+            // -------------------------------------------------
+
+            const device = await Device.findOne({
+                deviceId
+            });
+
 
             if (!device) {
 
-                console.log(`❌ Unknown Device : ${deviceId}`);
+                console.log(
+                    `❌ Unknown Device : ${deviceId}`
+                );
 
                 return;
-
             }
+
+
+            // =================================================
+            // RELAY STATUS
+            // =================================================
+
             if (topicType === "relay") {
 
-    device.relay = data.relay;
-    device.status = "online";
-    device.lastSeen = new Date();
+                device.relay = data.relay;
+                device.status = "online";
+                device.lastSeen = new Date();
 
-    await device.save();
+                await device.save();
 
-    io.to(device.userId.toString()).emit("gas-data", {
-        deviceId: device.deviceId,
-        relay: device.relay,
-         gas: device.gas,
-         temperature: device.lastHeat,
-         valve: device.valve,
-         mode: device.mode,
-        status: "online",
-        lastSeen: device.lastSeen,
-    });
 
-    console.log("Relay Status Updated");
+                io.to(device.userId.toString()).emit(
+                    "gas-data",
+                    {
+                        deviceId: device.deviceId,
 
-    return;
-}
-if (topicType === "mode") {
+                        relay: device.relay,
 
-    if (data.mode !== "AUTO" && data.mode !== "MANUAL") {
-        console.log("❌ Invalid Mode:", data.mode);
-        return;
-    }
+                        gas: device.gas,
 
-    device.mode = data.mode;
-    device.status = "online";
-    device.lastSeen = new Date();
+                        temperature: device.lastHeat,
 
-    await device.save();
-    
+                        valve: device.valve,
 
-    io.to(device.userId.toString()).emit("gas-data", {
-        deviceId: device.deviceId,
-        mode: device.mode,
-        gas: device.gas,
-         temperature: device.lastHeat,
-        relay: device.relay,
-        valve: device.valve,
-        status: "online",
-        lastSeen: device.lastSeen,
-    });
+                        mode: device.mode,
 
-    console.log("✅ ESP32 Mode Updated:", device.mode);
+                        status: "online",
 
-    return;
-}
- if (topicType === "temp") {
+                        lastSeen: device.lastSeen
+                    }
+                );
 
-                const temperature = Number(data.temperature);
+
+                console.log(
+                    "✅ Relay Status Updated:",
+                    device.relay
+                );
+
+
+                return;
+            }
+
+
+            // =================================================
+            // MODE STATUS
+            // =================================================
+
+            if (topicType === "mode") {
+
+                if (
+                    data.mode !== "AUTO" &&
+                    data.mode !== "MANUAL"
+                ) {
+
+                    console.log(
+                        "❌ Invalid Mode:",
+                        data.mode
+                    );
+
+                    return;
+                }
+
+
+                device.mode = data.mode;
+                device.status = "online";
+                device.lastSeen = new Date();
+
+                await device.save();
+
+
+                io.to(device.userId.toString()).emit(
+                    "gas-data",
+                    {
+                        deviceId: device.deviceId,
+
+                        mode: device.mode,
+
+                        gas: device.gas,
+
+                        temperature: device.lastHeat,
+
+                        relay: device.relay,
+
+                        valve: device.valve,
+
+                        status: "online",
+
+                        lastSeen: device.lastSeen
+                    }
+                );
+
+
+                console.log(
+                    "✅ ESP32 Mode Updated:",
+                    device.mode
+                );
+
+
+                return;
+            }
+
+
+            // =================================================
+            // TEMPERATURE
+            // =================================================
+
+            if (topicType === "temp") {
+
+                const temperature =
+                    Number(data.temperature);
+
 
                 if (isNaN(temperature)) {
 
@@ -119,132 +214,333 @@ if (topicType === "mode") {
                     return;
                 }
 
+
                 device.lastHeat = temperature;
                 device.status = "online";
                 device.lastSeen = new Date();
 
                 await device.save();
 
+
                 console.log(
                     "🌡️ Temperature Received:",
                     temperature,
                     "°C"
                 );
-                  // Send to mobile through Socket.IO
 
-                io.to(device.userId.toString()).emit("gas-data", {
 
-                    deviceId: device.deviceId,
+                io.to(device.userId.toString()).emit(
+                    "gas-data",
+                    {
+                        deviceId: device.deviceId,
 
-                    temperature: temperature,
+                        temperature: temperature,
 
-                    gas: device.gas,
+                        gas: device.gas,
 
-                    relay: device.relay,
+                        relay: device.relay,
 
-                    valve: device.valve,
+                        valve: device.valve,
 
-                    mode: device.mode,
+                        mode: device.mode,
 
-                    status: "online",
+                        status: "online",
 
-                    lastSeen: device.lastSeen,
-                });
+                        lastSeen: device.lastSeen
+                    }
+                );
 
 
                 console.log(
                     "📱 Temperature sent to Socket"
                 );
 
+
                 return;
             }
-            // Update Device Status
-            device.gas= data.gas;
-            device.status = "online";
-            device.lastSeen = new Date();
 
-            await device.save();
-console.log("Sending Socket to:", device.userId.toString());
-            // Send Live Data (temporary)
-   io.to(device.userId.toString()).emit("gas-data", {
-    deviceId: device.deviceId,
-    gas: data.gas,
-    relay: device.relay,
-    valve: device.valve,
-    mode: device.mode,
-    status: "online",
-    lastSeen: device.lastSeen,
-});
 
-            // Determine Alert Level
-            let level = null;
+            // =================================================
+            // ESP32 ACK
+            // =================================================
 
-            if (data.gas >= 900) {
+            if (topicType === "ack") {
 
-                level = "Critical";
+                console.log("================================");
+                console.log("📩 ESP32 ACK RECEIVED");
+                console.log("Device :", deviceId);
+                console.log("ACK    :", data);
 
-            } else if (data.gas >= 500) {
 
-                level = "Warning";
+                // ---------------------------------------------
+                // Validate ACK
+                // ---------------------------------------------
 
-            }
-            device.alertState = level;
+                if (!data.action) {
 
-await device.save();
-
-            // Save Alert
-            if (level) {
-
-                await Alert.create({
-
-                    deviceId,
-                     
-                    gas: data.gas,
-
-                    level
-
-                });
-
-                console.log(`Alert Saved (${level})`);
-
-            }
-
-            // Critical Notification
-            if (level === "Critical") {
-
-                const now = Date.now();
-
-                if (
-                    !notificationCooldown[deviceId] ||
-                    now - notificationCooldown[deviceId] > COOLDOWN
-                ) {
-
-                    await sendNotification(
-                        deviceId,
-                        data.gas,
-                        level
+                    console.log(
+                        "❌ ACK missing action"
                     );
 
-                    notificationCooldown[deviceId] = now;
+                    return;
+                }
+
+
+                // ---------------------------------------------
+                // Send ACK to Mobile App
+                // ---------------------------------------------
+
+                io.to(device.userId.toString()).emit(
+                    "device-ack",
+                    {
+                        deviceId: device.deviceId,
+
+                        action: data.action,
+
+                        success:
+                            data.success === true,
+
+                        mode: data.mode,
+
+                        valve: data.valve,
+
+                        relay: data.relay,
+
+                        message: data.message
+                    }
+                );
+
+
+                console.log(
+                    "📱 ACK sent to Socket.IO"
+                );
+
+
+                return;
+            }
+
+
+            // =================================================
+            // GAS SENSOR
+            // =================================================
+
+            if (topicType === "gas") {
+
+                const gasValue = Number(data.gas);
+
+
+                // ---------------------------------------------
+                // Validate Gas
+                // ---------------------------------------------
+
+                if (isNaN(gasValue)) {
+
+                    console.log(
+                        "❌ Invalid Gas Value:",
+                        data.gas
+                    );
+
+                    return;
+                }
+
+
+                // ---------------------------------------------
+                // Update Device
+                // ---------------------------------------------
+
+                device.gas = gasValue;
+
+                device.status = "online";
+
+                device.lastSeen = new Date();
+
+
+                await device.save();
+
+
+                console.log(
+                    "🔥 Gas Received:",
+                    gasValue
+                );
+
+
+                // ---------------------------------------------
+                // Send Live Gas Data to Mobile
+                // ---------------------------------------------
+
+                io.to(device.userId.toString()).emit(
+                    "gas-data",
+                    {
+                        deviceId: device.deviceId,
+
+                        gas: gasValue,
+
+                        temperature:
+                            device.lastHeat,
+
+                        relay:
+                            device.relay,
+
+                        valve:
+                            device.valve,
+
+                        mode:
+                            device.mode,
+
+                        status: "online",
+
+                        lastSeen:
+                            device.lastSeen
+                    }
+                );
+
+
+                console.log(
+                    "📱 Gas data sent to Socket"
+                );
+
+
+                // ---------------------------------------------
+                // Determine Alert Level
+                // ---------------------------------------------
+
+                let level = null;
+
+
+                if (gasValue >= 900) {
+
+                    level = "Critical";
+
+                }
+                else if (gasValue >= 500) {
+
+                    level = "Warning";
 
                 }
 
+
+                // ---------------------------------------------
+                // Update Alert State
+                // ---------------------------------------------
+
+                device.alertState =
+                    level || "Normal";
+
+
+                await device.save();
+
+
+                console.log(
+                    "Alert State:",
+                    device.alertState
+                );
+
+
+                // ---------------------------------------------
+                // Save Alert
+                // ---------------------------------------------
+
+                if (level) {
+
+                    await Alert.create({
+
+                        deviceId: device.deviceId,
+
+                        gas: gasValue,
+
+                        level
+
+                    });
+
+
+                    console.log(
+                        `⚠️ Alert Saved (${level})`
+                    );
+                }
+
+
+                // ---------------------------------------------
+                // Critical Notification
+                // ---------------------------------------------
+
+                if (level === "Critical") {
+
+                    const now = Date.now();
+
+
+                    if (
+                        !notificationCooldown[deviceId] ||
+                        now -
+                            notificationCooldown[deviceId] >
+                            COOLDOWN
+                    ) {
+
+                        await sendNotification(
+                            deviceId,
+                            gasValue,
+                            level
+                        );
+
+
+                        notificationCooldown[deviceId] =
+                            now;
+
+
+                        console.log(
+                            "📱 Critical Notification Sent"
+                        );
+
+                    }
+                    else {
+
+                        console.log(
+                            "⏳ Notification cooldown active"
+                        );
+
+                    }
+                }
+
+
+                return;
             }
 
-        } catch (err) {
 
-            console.log("MQTT Error:", err.message);
+            // =================================================
+            // UNKNOWN TOPIC
+            // =================================================
+
+            console.log(
+                "⚠️ Unknown MQTT Topic:",
+                topic
+            );
+
+        }
+        catch (err) {
+
+            console.log(
+                "❌ MQTT Error:",
+                err.message
+            );
 
         }
 
     });
 
+
+    // =========================================================
+    // MQTT ERROR
+    // =========================================================
+
     client.on("error", (err) => {
 
-        console.log("MQTT Connection Error:", err.message);
+        console.log(
+            "❌ MQTT Connection Error:",
+            err.message
+        );
 
     });
 
 }
+
 
 module.exports = startMQTT;
