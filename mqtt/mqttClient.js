@@ -11,7 +11,7 @@ function startMQTT(io) {
     const notificationCooldown = {};
 
     // 5 Minutes
-    const COOLDOWN = 5 * 60 * 1000;
+    const COOLDOWN = 1 * 60 * 1000;
 
 
     // =========================================================
@@ -264,61 +264,80 @@ function startMQTT(io) {
             // ESP32 ACK
             // =================================================
 
-            if (topicType === "ack") {
+           if (topicType === "ack") {
 
-                console.log("================================");
-                console.log("📩 ESP32 ACK RECEIVED");
-                console.log("Device :", deviceId);
-                console.log("ACK    :", data);
+    console.log("================================");
+    console.log("📩 ESP32 ACK RECEIVED");
+    console.log("Device :", deviceId);
+    console.log("ACK    :", data);
 
+    // ---------------------------------------------
+    // Validate ACK
+    // ---------------------------------------------
 
-                // ---------------------------------------------
-                // Validate ACK
-                // ---------------------------------------------
+    if (!data.action) {
+        console.log("❌ ACK missing action");
+        return;
+    }
 
-                if (!data.action) {
+    // ---------------------------------------------
+    // Update MongoDB ONLY after successful ACK
+    // ---------------------------------------------
 
-                    console.log(
-                        "❌ ACK missing action"
-                    );
+    if (data.success === true) {
 
-                    return;
-                }
+        const update = {};
 
+        if (data.mode !== undefined) {
+            update.mode = data.mode;
+        }
 
-                // ---------------------------------------------
-                // Send ACK to Mobile App
-                // ---------------------------------------------
+        if (data.valve !== undefined) {
+            update.valve = data.valve;
+        }
 
-                io.to(device.userId.toString()).emit(
-                    "device-ack",
-                    {
-                        deviceId: device.deviceId,
+        if (data.relay !== undefined) {
+            update.relay = data.relay;
+        }
 
-                        action: data.action,
+        if (Object.keys(update).length > 0) {
 
-                        success:
-                            data.success === true,
+            update.status = "online";
+            update.lastSeen = new Date();
 
-                        mode: data.mode,
+            await Device.findOneAndUpdate(
+                { deviceId: deviceId },
+                { $set: update }
+            );
 
-                        valve: data.valve,
+            console.log(
+                "✅ Device state updated from ACK:",
+                update
+            );
+        }
+    }
 
-                        relay: data.relay,
+    // ---------------------------------------------
+    // Send ACK to Mobile App
+    // ---------------------------------------------
 
-                        message: data.message
-                    }
-                );
+    io.to(device.userId.toString()).emit(
+        "device-ack",
+        {
+            deviceId: device.deviceId,
+            action: data.action,
+            success: data.success === true,
+            mode: data.mode,
+            valve: data.valve,
+            relay: data.relay,
+            message: data.message
+        }
+    );
 
+    console.log("📱 ACK sent to Socket.IO");
 
-                console.log(
-                    "📱 ACK sent to Socket.IO"
-                );
-
-
-                return;
-            }
-
+    return;
+}
 
             // =================================================
             // GAS SENSOR
