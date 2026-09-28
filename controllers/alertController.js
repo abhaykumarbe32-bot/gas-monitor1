@@ -22,3 +22,28 @@ exports.getAlerts = async (req, res) => {
 
     }
 };
+
+
+// Delete all alerts of a device
+exports.deleteAlerts = async (req, res) => {
+    try {
+
+        const { deviceId } = req.params;
+
+        const result = await Alert.deleteMany({ deviceId });
+
+        res.json({
+            success: true,
+            message: "Alert history deleted successfully",
+            deletedCount: result.deletedCount
+        });
+
+    } catch (err) {
+
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+
+    }
+};
