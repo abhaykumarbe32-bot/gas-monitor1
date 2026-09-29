@@ -27,6 +27,7 @@ function startMQTT(io) {
         client.subscribe("sensor/+/mode");
         client.subscribe("sensor/+/temp");
         client.subscribe("sensor/+/ack");
+        client.subscribe("sensor/+/valve");
 
         console.log("Subscribed : sensor/+/gas");
         console.log("Subscribed : sensor/+/relay");
@@ -89,7 +90,37 @@ function startMQTT(io) {
                 return;
             }
 
+// =================================================
+// VALVE STATUS
+// =================================================
 
+if (topicType === "valve") {
+
+    const valveValue = Boolean(data.valve);
+
+    device.valve = valveValue;
+    device.status = "online";
+    device.lastSeen = new Date();
+
+    await device.save();
+
+    io.to(device.userId.toString()).emit(
+        "valve-status",
+        {
+            deviceId: device.deviceId,
+            valve: device.valve,
+            status: "online",
+            lastSeen: device.lastSeen
+        }
+    );
+
+    console.log(
+        "✅ Valve Status Updated from MQTT:",
+        device.valve
+    );
+
+    return;
+}
             // =================================================
             // RELAY STATUS
             // =================================================
