@@ -28,11 +28,11 @@ exports.getDashboard = async (req, res) => {
         ).length;
 
         const warningDevices = devices.filter(
-            d => d.gas >= 500 && d.gas < 900
+            d => d.gas > 500 && d.gas < 900
         ).length;
 
         const criticalDevices = devices.filter(
-            d => d.gas >= 900
+            d => d.gas > 900
         ).length;
 
         res.json({

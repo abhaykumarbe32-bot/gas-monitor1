@@ -457,12 +457,12 @@ if (topicType === "valve") {
                 let level = null;
 
 
-                if (gasValue >= 900) {
+                if (gasValue > 900) {
 
                     level = "Critical";
 
                 }
-                else if (gasValue >= 500) {
+                else if (gasValue > 500) {
 
                     level = "Warning";
 
