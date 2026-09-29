@@ -2,13 +2,14 @@ const Alert = require("../models/Alert");
 const Device = require("../models/Device");
 
 // Get device-specific alert history (returns all history alerts for selected device)
+// Get device-specific alert history
 exports.getAlerts = async (req, res) => {
     try {
         const { deviceId } = req.params;
 
-        // Verify device ownership
+        // deviceId here is the ESP32 hardware device ID
         const device = await Device.findOne({
-            $or: [{ deviceId: deviceId }, { _id: deviceId }],
+            deviceId: deviceId,
             userId: req.user.id
         });
 
@@ -19,9 +20,10 @@ exports.getAlerts = async (req, res) => {
             });
         }
 
-        // Return ALL alerts for the specific device (Alert History remains intact)
-        const alerts = await Alert.find({ deviceId: device.deviceId })
-            .sort({ createdAt: -1 });
+        // Get all alert history for this specific device
+        const alerts = await Alert.find({
+            deviceId: device.deviceId
+        }).sort({ createdAt: -1 });
 
         res.json({
             success: true,
@@ -29,13 +31,14 @@ exports.getAlerts = async (req, res) => {
         });
 
     } catch (err) {
+        console.error("Get Alert History Error:", err);
+
         res.status(500).json({
             success: false,
             message: err.message
         });
     }
 };
-
 // Get active (uncleared) notifications for logged-in user across all owned devices
 exports.getUserAlerts = async (req, res) => {
     try {
@@ -149,12 +152,14 @@ exports.clearAllNotifications = async (req, res) => {
 };
 
 // Delete all alert history for a specific device (explicit Alert History clear action)
+// Delete all alert history for a specific device
 exports.deleteAlerts = async (req, res) => {
     try {
         const { deviceId } = req.params;
 
+        // deviceId is the ESP32 hardware device ID
         const device = await Device.findOne({
-            $or: [{ deviceId: deviceId }, { _id: deviceId }],
+            deviceId: deviceId,
             userId: req.user.id
         });
 
@@ -165,7 +170,9 @@ exports.deleteAlerts = async (req, res) => {
             });
         }
 
-        const result = await Alert.deleteMany({ deviceId: device.deviceId });
+        const result = await Alert.deleteMany({
+            deviceId: device.deviceId
+        });
 
         res.json({
             success: true,
@@ -174,6 +181,8 @@ exports.deleteAlerts = async (req, res) => {
         });
 
     } catch (err) {
+        console.error("Delete Alert History Error:", err);
+
         res.status(500).json({
             success: false,
             message: err.message
