@@ -8,11 +8,17 @@ const {
     getAlerts,
     getUserAlerts,
     deleteAlerts,
-    deleteSingleAlert
+    clearSingleNotification,
+    clearAllNotifications,
 } = require("../controllers/alertController");
 
+// User notifications routes (temporary / active notifications view)
 router.get("/user", auth, getUserAlerts);
-router.delete("/single/:alertId", auth, deleteSingleAlert);
+router.put("/clear-all", auth, clearAllNotifications);
+router.put("/clear-single/:alertId", auth, clearSingleNotification);
+router.delete("/single/:alertId", auth, clearSingleNotification);
+
+// Device-specific Alert History routes (permanent history per device)
 router.get("/:deviceId", auth, getAlerts);
 router.delete("/:deviceId", auth, deleteAlerts);
 

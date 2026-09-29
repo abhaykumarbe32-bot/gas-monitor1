@@ -14,6 +14,10 @@ const alertSchema = new mongoose.Schema({
         enum: ["Warning", "Critical"],
         required: true
     },
+    notificationCleared: {
+        type: Boolean,
+        default: false
+    },
     createdAt: {
         type: Date,
         default: Date.now

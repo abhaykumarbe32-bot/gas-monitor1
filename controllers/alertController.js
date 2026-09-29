@@ -1,11 +1,26 @@
 const Alert = require("../models/Alert");
+const Device = require("../models/Device");
 
+// Get device-specific alert history (returns all history alerts for selected device)
 exports.getAlerts = async (req, res) => {
     try {
-
         const { deviceId } = req.params;
 
-        const alerts = await Alert.find({ deviceId })
+        // Verify device ownership
+        const device = await Device.findOne({
+            $or: [{ deviceId: deviceId }, { _id: deviceId }],
+            userId: req.user.id
+        });
+
+        if (!device) {
+            return res.status(404).json({
+                success: false,
+                message: "Device not found or unauthorized"
+            });
+        }
+
+        // Return ALL alerts for the specific device (Alert History remains intact)
+        const alerts = await Alert.find({ deviceId: device.deviceId })
             .sort({ createdAt: -1 });
 
         res.json({
@@ -14,20 +29,16 @@ exports.getAlerts = async (req, res) => {
         });
 
     } catch (err) {
-
         res.status(500).json({
             success: false,
             message: err.message
         });
-
     }
 };
 
-
-// Get all alerts for logged-in user across all devices
+// Get active (uncleared) notifications for logged-in user across all owned devices
 exports.getUserAlerts = async (req, res) => {
     try {
-        const Device = require("../models/Device");
         const userId = req.user.id;
 
         const userDevices = await Device.find({ userId }).select("deviceId deviceName location");
@@ -38,8 +49,11 @@ exports.getUserAlerts = async (req, res) => {
             return d.deviceId;
         });
 
-        const alerts = await Alert.find({ deviceId: { $in: deviceIds } })
-            .sort({ createdAt: -1 });
+        // Query only notifications that have NOT been cleared by user
+        const alerts = await Alert.find({
+            deviceId: { $in: deviceIds },
+            notificationCleared: { $ne: true }
+        }).sort({ createdAt: -1 });
 
         const formattedAlerts = alerts.map((alert) => {
             const dev = deviceMap[alert.deviceId];
@@ -68,17 +82,16 @@ exports.getUserAlerts = async (req, res) => {
     }
 };
 
-// Delete a single notification alert by ID
-exports.deleteSingleAlert = async (req, res) => {
+// Clear a single notification (marks notificationCleared: true, DOES NOT DELETE ALERT HISTORY DOCUMENT)
+exports.clearSingleNotification = async (req, res) => {
     try {
-        const Device = require("../models/Device");
         const { alertId } = req.params;
 
         const alert = await Alert.findById(alertId);
         if (!alert) {
             return res.status(404).json({
                 success: false,
-                message: "Alert notification not found"
+                message: "Notification alert not found"
             });
         }
 
@@ -87,15 +100,17 @@ exports.deleteSingleAlert = async (req, res) => {
         if (!device) {
             return res.status(403).json({
                 success: false,
-                message: "Unauthorized to delete this alert notification"
+                message: "Unauthorized to clear this notification"
             });
         }
 
-        await Alert.findByIdAndDelete(alertId);
+        // Mark notification as cleared without deleting the alert history document
+        alert.notificationCleared = true;
+        await alert.save();
 
         res.json({
             success: true,
-            message: "Notification deleted successfully"
+            message: "Notification cleared successfully"
         });
 
     } catch (err) {
@@ -106,13 +121,51 @@ exports.deleteSingleAlert = async (req, res) => {
     }
 };
 
-// Delete all alerts of a device
+// Clear all notifications for user (marks notificationCleared: true, DOES NOT DELETE ALERT HISTORY DOCUMENTS)
+exports.clearAllNotifications = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const userDevices = await Device.find({ userId }).select("deviceId");
+        const deviceIds = userDevices.map((d) => d.deviceId);
+
+        const result = await Alert.updateMany(
+            { deviceId: { $in: deviceIds }, notificationCleared: { $ne: true } },
+            { $set: { notificationCleared: true } }
+        );
+
+        res.json({
+            success: true,
+            message: "All notifications cleared successfully",
+            modifiedCount: result.modifiedCount
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+    }
+};
+
+// Delete all alert history for a specific device (explicit Alert History clear action)
 exports.deleteAlerts = async (req, res) => {
     try {
-
         const { deviceId } = req.params;
 
-        const result = await Alert.deleteMany({ deviceId });
+        const device = await Device.findOne({
+            $or: [{ deviceId: deviceId }, { _id: deviceId }],
+            userId: req.user.id
+        });
+
+        if (!device) {
+            return res.status(404).json({
+                success: false,
+                message: "Device not found or unauthorized"
+            });
+        }
+
+        const result = await Alert.deleteMany({ deviceId: device.deviceId });
 
         res.json({
             success: true,
@@ -121,11 +174,9 @@ exports.deleteAlerts = async (req, res) => {
         });
 
     } catch (err) {
-
         res.status(500).json({
             success: false,
             message: err.message
         });
-
     }
 };
