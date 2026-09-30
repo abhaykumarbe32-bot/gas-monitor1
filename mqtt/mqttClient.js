@@ -206,7 +206,7 @@ if (topicType === "valve") {
 
                         relay: device.relay,
 
-                       
+                        valve: device.valve,
 
                         status: "online",
 
@@ -270,6 +270,10 @@ if (topicType === "valve") {
                         gas: device.gas,
 
                         relay: device.relay,
+
+                        valve: device.valve,
+
+                        mode: device.mode,
 
                         status: "online",
 
@@ -427,7 +431,11 @@ if (topicType === "valve") {
                         relay:
                             device.relay,
 
-                        
+                        valve:
+                            device.valve,
+
+                        mode:
+                            device.mode,
 
                         status: "online",
 
