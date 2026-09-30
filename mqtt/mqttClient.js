@@ -319,13 +319,13 @@ if (topicType === "valve") {
 
         const update = {};
 
-        // if (data.mode !== undefined) {
-        //     update.mode = data.mode;
-        // }
+        if (data.mode !== undefined) {
+            update.mode = data.mode;
+        }
 
-        // if (data.valve !== undefined) {
-        //     update.valve = data.valve;
-        // }
+        if (data.valve !== undefined) {
+            update.valve = data.valve;
+        }
 
         if (data.relay !== undefined) {
             update.relay = data.relay;
