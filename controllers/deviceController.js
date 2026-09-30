@@ -205,7 +205,6 @@ exports.getDeviceById = async (req, res) => {
     }
 };
 exports.controlDevice = async (req, res) => {
-
     try {
 
         const { action } = req.body;
@@ -238,9 +237,46 @@ exports.controlDevice = async (req, res) => {
             });
         }
 
-        // --------------------------------
-        // SEND ONLY ONE ACTION TO ESP32
-        // --------------------------------
+        // ==========================================
+        // UPDATE DATABASE STATE
+        // ==========================================
+
+        if (action === "mode-auto") {
+            device.mode = "AUTO";
+        }
+
+        if (action === "mode-manual") {
+            device.mode = "MANUAL";
+        }
+
+        if (action === "valve-open") {
+            device.valve = true;
+        }
+
+        if (action === "valve-close") {
+            device.valve = false;
+        }
+
+        if (action === "relay-on") {
+            device.relay = true;
+        }
+
+        if (action === "silence") {
+            device.relay = false;
+        }
+
+        await device.save();
+
+        console.log("💾 Database updated:", {
+            deviceId: device.deviceId,
+            mode: device.mode,
+            valve: device.valve,
+            relay: device.relay
+        });
+
+        // ==========================================
+        // SEND COMMAND TO ESP32
+        // ==========================================
 
         const command = {
             action
@@ -253,14 +289,11 @@ exports.controlDevice = async (req, res) => {
 
         console.log("📤 Command sent to ESP32:", command);
 
-        // IMPORTANT:
-        // Database state is NOT changed here.
-        // ESP32 ACK ke baad hi state update hogi.
-
         res.json({
             success: true,
-            message: "Command sent to device",
-            action
+            message: "Command sent and database updated",
+            action,
+            device
         });
 
     } catch (err) {
@@ -273,7 +306,6 @@ exports.controlDevice = async (req, res) => {
         });
 
     }
-
 };
 exports.changeMode = async (req, res) => {
     try {

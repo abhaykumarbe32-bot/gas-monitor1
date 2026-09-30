@@ -316,13 +316,13 @@ if (topicType === "valve") {
 
         const update = {};
 
-        // if (data.mode !== undefined) {
-        //   update.mode = data.mode;
-        // }  
+        if (data.mode !== undefined) {
+          update.mode = data.mode;
+        }  
 
-        // if (data.valve !== undefined) {
-        //     update.valve = data.valve;
-        // }
+        if (data.valve !== undefined) {
+            update.valve = data.valve;
+        }
 
         if (data.relay !== undefined) {
             update.relay = data.relay;
@@ -356,8 +356,8 @@ if (topicType === "valve") {
             action: data.action,
             success: data.success === true,
             mode: data.mode,
-            // valve: data.valve,
-            // relay: data.relay,
+            valve: data.valve,
+            relay: data.relay,
             message: data.message
         }
     );
@@ -428,11 +428,11 @@ if (topicType === "valve") {
                         relay:
                             device.relay,
 
-                        // valve:
-                        //     device.valve,
+                        valve:
+                            device.valve,
 
-                        // mode:
-                        //     device.mode,
+                        mode:
+                            device.mode,
 
                         status: "online",
 
