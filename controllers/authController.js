@@ -242,6 +242,42 @@ const resetPassword = async (req, res) => {
     });
   }
 };
+exports.logout = async (req, res) => {
+    try {
+        const { expoPushToken } = req.body;
+
+        const user = await User.findById(req.user.id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // Remove only the current device token
+        if (expoPushToken) {
+            user.expoPushTokens = user.expoPushTokens.filter(
+                token => token !== expoPushToken
+            );
+
+            await user.save();
+        }
+
+        res.json({
+            success: true,
+            message: "Logged out successfully"
+        });
+
+    } catch (err) {
+        console.error("Logout Error:", err);
+
+        res.status(500).json({
+            success: false,
+            message: "Logout failed"
+        });
+    }
+};
 
 module.exports = {
   register,
@@ -249,4 +285,5 @@ module.exports = {
   forgotPassword,
   verifyOTP,
   resetPassword,
+  logout,
 };
