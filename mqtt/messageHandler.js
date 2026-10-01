@@ -66,46 +66,55 @@ async function handleMessage(io, topic, message) {
 
         if (gas >= CRITICAL_LEVEL) {
             currentState = "Critical";
-        } else if (gas >= 501) {
+        } else if (gas > WARNING_LEVEL) {
             currentState = "Warning";
         }
 
         // Always update current alertState on Device model
         device.alertState = currentState;
 
-        // Handle single-notification cycle per abnormal period
         if (currentState === "Normal") {
 
-            // Reset notification cycle flag when gas returns to Normal
-            if (device.alertNotificationSent) {
-                device.alertNotificationSent = false;
-                console.log(`🔄 Alert notification cycle reset to Normal for ${deviceId}`);
+            // Reset both notification flags when device returns to Normal
+            device.warningNotificationSent = false;
+            device.criticalNotificationSent = false;
+
+        } else if (currentState === "Warning") {
+
+            if (!device.warningNotificationSent) {
+
+                await Alert.create({
+                    deviceId,
+                    gas,
+                    level: "Warning"
+                });
+
+                await sendNotification(deviceId, gas, "Warning");
+
+                device.warningNotificationSent = true;
+                console.log(`⚠️ Warning Alert Saved & Notification Sent for ${deviceId}`);
             }
-            await device.save();
 
-        } else if (!device.alertNotificationSent) {
+        } else if (currentState === "Critical") {
 
-            // First abnormal reading of this cycle -> Send 1 notification & create 1 Alert document
-            device.alertNotificationSent = true;
-            await device.save();
+            if (!device.criticalNotificationSent) {
 
-            await Alert.create({
-                deviceId,
-                gas,
-                level: currentState
-            });
+                await Alert.create({
+                    deviceId,
+                    gas,
+                    level: "Critical"
+                });
 
-            console.log(`⚠️ Alert Saved (${currentState}) for ${deviceId}`);
+                await sendNotification(deviceId, gas, "Critical");
 
-            await sendNotification(deviceId, gas, currentState);
-            console.log(`📱 Push Notification Sent (${currentState}) for ${deviceId}`);
-
-        } else {
-
-            // Still in active abnormal cycle (Warning ↔ Critical) -> Save state without creating duplicate alert
-            await device.save();
+                device.criticalNotificationSent = true;
+                device.warningNotificationSent = true;
+                console.log(`🚨 Critical Alert Saved & Notification Sent for ${deviceId}`);
+            }
 
         }
+
+        await device.save();
 }catch (error) {
 
         console.log("Message Error:", error.message);
