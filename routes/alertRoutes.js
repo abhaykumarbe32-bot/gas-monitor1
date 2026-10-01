@@ -25,13 +25,13 @@ router.get("/:deviceId", auth, getAlerts);
 router.delete("/:deviceId", auth, deleteAlerts);
 router.get(
     "/unread-count",
-    authMiddleware,
+    auth,
     getUnreadNotificationCount
 );
 
 router.post(
     "/mark-read",
-    authMiddleware,
+    auth,
     markNotificationsRead
 );
 module.exports = router;
