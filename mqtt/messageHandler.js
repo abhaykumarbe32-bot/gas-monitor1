@@ -3,7 +3,7 @@ const Device = require("../models/Device");
 
 const { sendNotification } = require("../services/notificationService");
 
-const WARNING_LEVEL = 300;
+const WARNING_LEVEL = 500;
 const CRITICAL_LEVEL = 900;
 
 // Notification spam se bachne ke liye
@@ -61,60 +61,41 @@ async function handleMessage(io, topic, message) {
         io.to(device.userId.toString()).emit("gas-data", data);
         console.log("Sending Socket Data:", data);
 
-        // Warning Alert
-      let currentState = "Normal";
+        // Determine Alert Level & State Machine Logic
+        let newAlertState = "Normal";
 
-if (gas >= CRITICAL_LEVEL) {
-
-    currentState = "Critical";
-
-}
-else if (gas >= WARNING_LEVEL) {
-
-    currentState = "Warning";
-
-}
-
-// Only act if alert state changed
-if (device.alertState !== currentState) {
-
-    device.alertState = currentState;
-
-    await device.save();
-
-    if (currentState !== "Normal") {
-
-        await Alert.create({
-
-            deviceId,
-            gas,
-            level: currentState
-
-        });
-
-        console.log(`${currentState} Alert Saved`);
-
-    }
-
-    if (currentState === "Critical") {
-
-        const now = Date.now();
-
-        if (
-            !notificationCooldown[deviceId] ||
-            now - notificationCooldown[deviceId] > COOLDOWN_TIME
-        ) {
-
-            await sendNotification(deviceId, gas);
-
-            notificationCooldown[deviceId] = now;
-
-
-            }
-
+        if (gas >= CRITICAL_LEVEL) {
+            newAlertState = "Critical";
+        } else if (gas >= 501) {
+            newAlertState = "Warning";
         }
 
-    }
+        const previousAlertState = device.alertState || "Normal";
+
+        // Trigger alert & notification ONLY when alert state changes
+        if (previousAlertState !== newAlertState) {
+
+            // Save new state in Device document
+            device.alertState = newAlertState;
+            await device.save();
+
+            console.log(`Alert State Changed for ${deviceId}: ${previousAlertState} ➡️ ${newAlertState}`);
+
+            // Create Alert document & send push notification for Warning or Critical
+            if (newAlertState !== "Normal") {
+
+                await Alert.create({
+                    deviceId,
+                    gas,
+                    level: newAlertState
+                });
+
+                console.log(`⚠️ Alert Saved (${newAlertState})`);
+
+                await sendNotification(deviceId, gas, newAlertState);
+                console.log(`📱 Push Notification Sent (${newAlertState})`);
+            }
+        }
 }catch (error) {
 
         console.log("Message Error:", error.message);

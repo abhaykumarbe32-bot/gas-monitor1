@@ -448,105 +448,48 @@ if (topicType === "valve") {
 
 
                 // ---------------------------------------------
-                // Determine Alert Level
+                // Determine Alert Level & State Machine Logic
                 // ---------------------------------------------
 
-                let level = null;
+                let newAlertState = "Normal";
 
-
-                if (gasValue > 900) {
-
-                    level = "Critical";
-
-                }
-                else if (gasValue > 500) {
-
-                    level = "Warning";
-
+                if (gasValue >= 900) {
+                    newAlertState = "Critical";
+                } else if (gasValue >= 501) {
+                    newAlertState = "Warning";
                 }
 
+                const previousAlertState = device.alertState || "Normal";
 
-                // ---------------------------------------------
-                // Update Alert State
-                // ---------------------------------------------
+                // Trigger alert & notification ONLY when alert state changes
+                if (previousAlertState !== newAlertState) {
 
-                device.alertState =
-                    level || "Normal";
+                    // Save new state in Device document
+                    device.alertState = newAlertState;
+                    await device.save();
 
+                    console.log(`Alert State Changed for ${device.deviceId}: ${previousAlertState} ➡️ ${newAlertState}`);
 
-                await device.save();
+                    // Create Alert document & send push notification for Warning or Critical
+                    if (newAlertState !== "Normal") {
 
+                        await Alert.create({
+                            deviceId: device.deviceId,
+                            gas: gasValue,
+                            level: newAlertState
+                        });
 
-                console.log(
-                    "Alert State:",
-                    device.alertState
-                );
-
-
-                // ---------------------------------------------
-                // Save Alert
-                // ---------------------------------------------
-
-                if (level) {
-
-                    await Alert.create({
-
-                        deviceId: device.deviceId,
-
-                        gas: gasValue,
-
-                        level
-
-                    });
-
-
-                    console.log(
-                        `⚠️ Alert Saved (${level})`
-                    );
-                }
-
-
-                // ---------------------------------------------
-                // Critical Notification
-                // ---------------------------------------------
-
-                if (level === "Critical") {
-
-                    const now = Date.now();
-
-
-                    if (
-                        !notificationCooldown[deviceId] ||
-                        now -
-                            notificationCooldown[deviceId] >
-                            COOLDOWN
-                    ) {
+                        console.log(`⚠️ Alert Saved (${newAlertState})`);
 
                         await sendNotification(
-                            deviceId,
+                            device.deviceId,
                             gasValue,
-                            level
+                            newAlertState
                         );
 
-
-                        notificationCooldown[deviceId] =
-                            now;
-
-
-                        console.log(
-                            "📱 Critical Notification Sent"
-                        );
-
-                    }
-                    else {
-
-                        console.log(
-                            "⏳ Notification cooldown active"
-                        );
-
+                        console.log(`📱 Push Notification Sent (${newAlertState})`);
                     }
                 }
-
 
                 return;
             }
