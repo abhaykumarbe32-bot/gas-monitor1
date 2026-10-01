@@ -242,7 +242,7 @@ const resetPassword = async (req, res) => {
     });
   }
 };
-exports.logout = async (req, res) => {
+const logout = async (req, res) => {
     try {
         const { expoPushToken } = req.body;
 
