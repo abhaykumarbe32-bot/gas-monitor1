@@ -60,6 +60,10 @@ const deviceSchema = new mongoose.Schema({
         enum: ["Normal", "Warning", "Critical"],
         default: "Normal"
     },
+    alertNotificationSent: {
+        type: Boolean,
+        default: false
+    },
     location: {
     type: String,
     default: "",
