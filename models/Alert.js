@@ -18,6 +18,10 @@ const alertSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    notificationRead: {
+    type: Boolean,
+    default: false
+},
     createdAt: {
         type: Date,
         default: Date.now

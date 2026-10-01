@@ -7,9 +7,11 @@ const auth = require("../middleware/authMiddleware");
 const {
     getAlerts,
     getUserAlerts,
-    deleteAlerts,
     clearSingleNotification,
     clearAllNotifications,
+    deleteAlerts,
+    markNotificationsRead,
+    getUnreadNotificationCount
 } = require("../controllers/alertController");
 
 // User notifications routes (temporary / active notifications view)
@@ -21,5 +23,15 @@ router.delete("/single/:alertId", auth, clearSingleNotification);
 // Device-specific Alert History routes (permanent history per device)
 router.get("/:deviceId", auth, getAlerts);
 router.delete("/:deviceId", auth, deleteAlerts);
+router.get(
+    "/unread-count",
+    authMiddleware,
+    getUnreadNotificationCount
+);
 
+router.post(
+    "/mark-read",
+    authMiddleware,
+    markNotificationsRead
+);
 module.exports = router;

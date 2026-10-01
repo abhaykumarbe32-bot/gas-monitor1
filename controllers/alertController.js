@@ -189,3 +189,79 @@ exports.deleteAlerts = async (req, res) => {
         });
     }
 };
+exports.markNotificationsRead = async (req, res) => {
+    try {
+
+        const Device = require("../models/Device");
+
+        const devices = await Device.find({
+            userId: req.user.id
+        }).select("deviceId");
+
+        const deviceIds = devices.map(device => device.deviceId);
+
+        await Alert.updateMany(
+            {
+                deviceId: { $in: deviceIds },
+                notificationRead: false
+            },
+            {
+                $set: {
+                    notificationRead: true
+                }
+            }
+        );
+
+        res.json({
+            success: true,
+            message: "Notifications marked as read"
+        });
+
+    } catch (error) {
+
+        console.log(
+            "Mark Notifications Read Error:",
+            error.message
+        );
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to mark notifications as read"
+        });
+    }
+};
+exports.getUnreadNotificationCount = async (req, res) => {
+    try {
+
+        const Device = require("../models/Device");
+
+        const devices = await Device.find({
+            userId: req.user.id
+        }).select("deviceId");
+
+        const deviceIds = devices.map(device => device.deviceId);
+
+        const count = await Alert.countDocuments({
+            deviceId: { $in: deviceIds },
+            notificationRead: false,
+            notificationCleared: { $ne: true }
+        });
+
+        res.json({
+            success: true,
+            count
+        });
+
+    } catch (error) {
+
+        console.log(
+            "Unread Notification Count Error:",
+            error.message
+        );
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to get unread notification count"
+        });
+    }
+};
